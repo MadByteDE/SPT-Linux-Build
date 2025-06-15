@@ -258,7 +258,8 @@ jobs:
 
       - name: Publish Release
         uses: softprops/action-gh-release@v2.3.2
-        if: github.ref_type == 'tag'
+        tag_name: ${{ needs.prepare.outputs.target_tag }}
+        if: tag_name != ${{ Null }}
         with:
           files: ${{ steps.generate-filename.outputs.build_name }}
             
