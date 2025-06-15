@@ -29,7 +29,6 @@ jobs:
       build_type: ${{ steps.determine-build-type.outputs.build_type }}
       client_version: ${{ steps.versions.outputs.client_version }}
       spt_version: ${{ steps.versions.outputs.spt_version }}
-      platforms: 'linux-x64'
 
     steps:
       - name: Determine Build Context
@@ -196,7 +195,7 @@ jobs:
       - name: Upload Server Artifact (Windows)
         uses: actions/upload-artifact@v4
         with:
-          name: server-artifact-win
+          name: server-artifact-win-x64
           path: |
             SPT/Build/server-csharp/SPTarkov.Server/bin/Release/net9.0/win-x64/publish/
             !SPT/Build/server-csharp/SPTarkov.Server/bin/Release/net9.0/win-x64/publish/**/*.pdb
@@ -209,7 +208,7 @@ jobs:
         if: github.event.inputs.crossPlatformRelease == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: server-artifact-linux
+          name: server-artifact-linux-x64
           path: |
             SPT/Build/server-csharp/SPTarkov.Server/bin/Release/net9.0/linux-x64/publish/
             !SPT/Build/server-csharp/SPTarkov.Server/bin/Release/net9.0/linux-x64/publish/**/*.pdb
@@ -230,18 +229,12 @@ jobs:
           rm -rf release build
           mkdir -p release
 
-      - name: Download Server Artifact (Windows)
+      - name: Download Server Artifact(s)
         uses: actions/download-artifact@v4
         with:
-          name: server-artifact-win
           path: release/
+          merge-multiple: true
 
-      - name: Download Server Artifact (Linux)
-        if: github.event.inputs.crossPlatformRelease == 'true'
-        uses: actions/download-artifact@v4
-        with:
-          name: server-artifact-linux
-          path: release/
 
       - name: Clone Build Project
         uses: actions/checkout@v4
@@ -261,20 +254,19 @@ jobs:
           SPT_NAME='SPT-SERVER'
           SPT_VERSION=${{ needs.prepare.outputs.spt_version }}
           CLIENT_VERSION=${{ needs.prepare.outputs.client_version }}
-          UPPER_PLATFORM=$(echo "${{ needs.prepare.outputs.platform }}" | tr '[:lower:]' '[:upper:]')
           SERVER_COMMIT=${{ needs.build-server.outputs.server_commit }}
           TARGET_TAG=${{ needs.prepare.outputs.target_tag }}
           DATE=$(date +%Y%m%d)
 
           if [[ "${{ needs.prepare.outputs.is_nightly }}" == "true" ]]; then
-            BASE_NAME="SPT-SERVER-NIGHTLY-${UPPER_PLATFORM}-${SPT_VERSION}-${CLIENT_VERSION}-${SERVER_COMMIT}-${DATE}"
+            BASE_NAME="${SPT_NAME}-NIGHTLY-${SPT_VERSION}-${CLIENT_VERSION}-${SERVER_COMMIT}-${DATE}"
           else
             UPPER_BUILD_TYPE=$(echo "$BUILD_TYPE" | tr '[:lower:]' '[:upper:]')
             UPPER_TARGET_TAG=$(echo "$TARGET_TAG" | tr '[:lower:]' '[:upper:]')
             
 
             if [ "$BUILD_TYPE" = "RELEASE" ]; then
-              BASE_NAME="${SPT_NAME}-${UPPER_PLATFORM}-${SPT_VERSION}-${CLIENT_VERSION}-${SERVER_COMMIT}"
+              BASE_NAME="${SPT_NAME}-${SPT_VERSION}-${CLIENT_VERSION}-${SERVER_COMMIT}"
             else
               TAG_PART=""
               if [[ "$UPPER_TARGET_TAG" == *-*-* ]]; then
@@ -284,9 +276,9 @@ jobs:
                 fi
               fi
               if [ -n "$TAG_PART" ]; then
-                BASE_NAME="${SPT_NAME}-${UPPER_PLATFORM}-${UPPER_BUILD_TYPE}-${SPT_VERSION}-${CLIENT_VERSION}-${SERVER_COMMIT}${TAG_PART}"
+                BASE_NAME="${SPT_NAME}-${UPPER_BUILD_TYPE}-${SPT_VERSION}-${CLIENT_VERSION}-${SERVER_COMMIT}${TAG_PART}"
               else
-                BASE_NAME="${SPT_NAME}-${UPPER_PLATFORM}-${UPPER_BUILD_TYPE}-${SPT_VERSION}-${CLIENT_VERSION}-${SERVER_COMMIT}-${DATE}"
+                BASE_NAME="${SPT_NAME}-${UPPER_BUILD_TYPE}-${SPT_VERSION}-${CLIENT_VERSION}-${SERVER_COMMIT}-${DATE}"
               fi
             fi
           fi
