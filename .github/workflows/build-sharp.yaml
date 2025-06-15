@@ -161,34 +161,34 @@ jobs:
       - name: Publish Server (Windows)
         shell: bash
         run: dotnet publish ./SPTarkov.Server/SPTarkov.Server.csproj \
-          -c Release \
-          -f net9.0 \
-          -r win-x64 \
-          -p:IncludeNativeLibrariesForSelfExtract=true \
-          -p:PublishSingleFile=true \
-          --self-contained false \
-          -p:SptBuildType=${{ needs.prepare.outputs.build_type }} \
-          -p:SptVersion=${{ needs.prepare.outputs.spt_version }} \
-          -p:SptBuildTime=$( date +%Y%m%d ) \
-          -p:SptCommit=${{ steps.commit-hash.outputs.server_commit }} \
-          -p:IsPublish=true
+        -c Release \
+        -f net9.0 \
+        -r win-x64 \
+        -p:IncludeNativeLibrariesForSelfExtract=true \
+        -p:PublishSingleFile=true \
+        --self-contained false \
+        -p:SptBuildType=${{ needs.prepare.outputs.build_type }} \
+        -p:SptVersion=${{ needs.prepare.outputs.spt_version }} \
+        -p:SptBuildTime=$( date +%Y%m%d ) \
+        -p:SptCommit=${{ steps.commit-hash.outputs.server_commit }} \
+        -p:IsPublish=true
         working-directory: SPT/Build/server-csharp
 
       - name: Publish Server (Linux)
         if: github.event.inputs.crossPlatformRelease == 'true'
         shell: bash
         run: dotnet publish ./SPTarkov.Server/SPTarkov.Server.csproj \
-          -c Release \
-          -f net9.0 \
-          -r linux-x64 \
-          -p:IncludeNativeLibrariesForSelfExtract=true \
-          -p:PublishSingleFile=true \
-          --self-contained false \
-          -p:SptBuildType=${{ needs.prepare.outputs.build_type }} \
-          -p:SptVersion=${{ needs.prepare.outputs.spt_version }} \
-          -p:SptBuildTime=$( date +%Y%m%d ) \
-          -p:SptCommit=${{ steps.commit-hash.outputs.server_commit }} \
-          -p:IsPublish=true
+        -c Release \
+        -f net9.0 \
+        -r linux-x64 \
+        -p:IncludeNativeLibrariesForSelfExtract=true \
+        -p:PublishSingleFile=true \
+        --self-contained false \
+        -p:SptBuildType=${{ needs.prepare.outputs.build_type }} \
+        -p:SptVersion=${{ needs.prepare.outputs.spt_version }} \
+        -p:SptBuildTime=$( date +%Y%m%d ) \
+        -p:SptCommit=${{ steps.commit-hash.outputs.server_commit }} \
+        -p:IsPublish=true
         working-directory: SPT/Build/server-csharp
 
       - name: Upload Server Artifact (Windows)
