@@ -254,3 +254,17 @@ jobs:
 
           echo "file_size_mb=$FILE_SIZE_MB" >> $GITHUB_OUTPUT
           echo "file_hash=$FILE_HASH" >> $GITHUB_OUTPUT
+
+      - name: Delete Artifact
+        uses: GeekyEggo/delete-artifact@v5.1.0
+        with:
+          name: server-artifact
+
+      - name: Publish Release
+        uses: softprops/action-gh-release@v2.3.2
+        if: github.ref_type == 'tag'
+        with:
+          make_latest: 'true'
+          files: |
+            steps.generate-filename.outputs.build_name
+            
