@@ -259,7 +259,7 @@ jobs:
       - name: Publish Release
         uses: softprops/action-gh-release@v2.3.2
         tag_name: ${{ needs.prepare.outputs.target_tag }}
-        if: tag_name != ${{ Null }}
+        if: tag_name != ${{ null }}
         with:
           files: ${{ steps.generate-filename.outputs.build_name }}
             
