@@ -7,6 +7,11 @@ on:
         description: "The tag to build on"
         required: true
         type: string
+      crossPlatformRelease:
+        description: 'Create a cross-platform release (Windows + Linux)'
+        required: false
+        type: 'boolean'
+        default: 'true'
 
 concurrency:
   group: spt-release-build-sharp
@@ -24,7 +29,7 @@ jobs:
       build_type: ${{ steps.determine-build-type.outputs.build_type }}
       client_version: ${{ steps.versions.outputs.client_version }}
       spt_version: ${{ steps.versions.outputs.spt_version }}
-      platform: 'linux-x64'
+      platforms: 'linux-x64'
 
     steps:
       - name: Determine Build Context
@@ -153,19 +158,59 @@ jobs:
         run: echo "server_commit=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
         working-directory: SPT/Build/server-csharp
 
-      - name: Publish Server
+      - name: Publish Server (Windows)
         shell: bash
-        run: |
-          dotnet publish ./SPTarkov.Server/SPTarkov.Server.csproj -c Release -f net9.0 -r ${{ needs.prepare.outputs.platform }} -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishSingleFile=true --self-contained false -p:SptBuildType=${{ needs.prepare.outputs.build_type }} -p:SptVersion=${{ needs.prepare.outputs.spt_version }} -p:SptBuildTime=$( date +%Y%m%d ) -p:SptCommit=${{ steps.commit-hash.outputs.server_commit }} -p:IsPublish=true
+        run: dotnet publish ./SPTarkov.Server/SPTarkov.Server.csproj \
+          -c Release \
+          -f net9.0 \
+          -r win-x64 \
+          -p:IncludeNativeLibrariesForSelfExtract=true \
+          -p:PublishSingleFile=true \
+          --self-contained false \
+          -p:SptBuildType=${{ needs.prepare.outputs.build_type }} \
+          -p:SptVersion=${{ needs.prepare.outputs.spt_version }} \
+          -p:SptBuildTime=$( date +%Y%m%d ) \
+          -p:SptCommit=${{ steps.commit-hash.outputs.server_commit }} \
+          -p:IsPublish=true
         working-directory: SPT/Build/server-csharp
 
-      - name: Upload Server Artifact
+      - name: Publish Server (Linux)
+        if: github.event.inputs.crossPlatformRelease == 'true'
+        shell: bash
+        run: dotnet publish ./SPTarkov.Server/SPTarkov.Server.csproj \
+          -c Release \
+          -f net9.0 \
+          -r linux-x64 \
+          -p:IncludeNativeLibrariesForSelfExtract=true \
+          -p:PublishSingleFile=true \
+          --self-contained false \
+          -p:SptBuildType=${{ needs.prepare.outputs.build_type }} \
+          -p:SptVersion=${{ needs.prepare.outputs.spt_version }} \
+          -p:SptBuildTime=$( date +%Y%m%d ) \
+          -p:SptCommit=${{ steps.commit-hash.outputs.server_commit }} \
+          -p:IsPublish=true
+        working-directory: SPT/Build/server-csharp
+
+      - name: Upload Server Artifact (Windows)
         uses: actions/upload-artifact@v4
         with:
-          name: server-artifact
+          name: server-artifact-win
           path: |
-            SPT/Build/server-csharp/SPTarkov.Server/bin/Release/net9.0/${{ needs.prepare.outputs.platform }}/publish/
-            !SPT/Build/server-csharp/SPTarkov.Server/bin/Release/net9.0/${{ needs.prepare.outputs.platform }}/publish/**/*.pdb
+            SPT/Build/server-csharp/SPTarkov.Server/bin/Release/net9.0/win-x64/publish/
+            !SPT/Build/server-csharp/SPTarkov.Server/bin/Release/net9.0/win-x64/publish/**/*.pdb
+          compression-level: 0
+          retention-days: 1
+          overwrite: true
+          if-no-files-found: error
+
+      - name: Upload Server Artifact (Linux)
+        if: github.event.inputs.crossPlatformRelease == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-artifact-linux
+          path: |
+            SPT/Build/server-csharp/SPTarkov.Server/bin/Release/net9.0/linux-x64/publish/
+            !SPT/Build/server-csharp/SPTarkov.Server/bin/Release/net9.0/linux-x64/publish/**/*.pdb
           compression-level: 0
           retention-days: 1
           overwrite: true
@@ -183,10 +228,17 @@ jobs:
           rm -rf release build
           mkdir -p release
 
-      - name: Download Server Artifact
+      - name: Download Server Artifact (Windows)
         uses: actions/download-artifact@v4
         with:
-          name: server-artifact
+          name: server-artifact-win
+          path: release/
+
+      - name: Download Server Artifact (Linux)
+        if: github.event.inputs.crossPlatformRelease == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: server-artifact-linux
           path: release/
 
       - name: Clone Build Project
@@ -255,11 +307,6 @@ jobs:
 
           echo "file_size_mb=$FILE_SIZE_MB" >> $GITHUB_OUTPUT
           echo "file_hash=$FILE_HASH" >> $GITHUB_OUTPUT
-
-      - name: Delete Artifact
-        uses: GeekyEggo/delete-artifact@v5.1.0
-        with:
-          name: server-artifact
 
       - name: Publish Release
         uses: softprops/action-gh-release@v2.3.2
