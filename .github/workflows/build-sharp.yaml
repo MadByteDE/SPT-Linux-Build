@@ -155,7 +155,10 @@ jobs:
 
       - name: Publish Server
         shell: bash
-        run: dotnet publish ./SPTarkov.Server/SPTarkov.Server.csproj -c Release -f net9.0 -r ${{ needs.prepare.outputs.platform }} -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishSingleFile=true --self-contained false -p:SptBuildType=${{ needs.prepare.outputs.build_type }} -p:SptVersion=${{ needs.prepare.outputs.spt_version }} -p:SptBuildTime=$( date +%Y%m%d ) -p:SptCommit=${{ steps.commit-hash.outputs.server_commit }} -p:IsPublish=true
+        run: |
+          dotnet publish ./SPTarkov.Server/SPTarkov.Server.csproj -c Release -f net9.0 -r ${{ needs.prepare.outputs.platform }} -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishSingleFile=true --self-contained false -p:SptBuildType=${{ needs.prepare.outputs.build_type }} -p:SptVersion=${{ needs.prepare.outputs.spt_version }} -p:SptBuildTime=$( date +%Y%m%d ) -p:SptCommit=${{ steps.commit-hash.outputs.server_commit }} -p:IsPublish=true
+          cd ./bin/Release/net9.0/${{ needs.prepare.outputs.platform }}/publish/
+          chmod +x SPTarkov.Server
         working-directory: SPT/Build/server-csharp
 
       - name: Upload Server Artifact
@@ -203,6 +206,7 @@ jobs:
         shell: bash
         run: |
           BUILD_TYPE=${{ needs.prepare.outputs.build_type }}
+          SPT_NAME='SPT-SERVER'
           SPT_VERSION=${{ needs.prepare.outputs.spt_version }}
           CLIENT_VERSION=${{ needs.prepare.outputs.client_version }}
           UPPER_PLATFORM=$(echo "${{ needs.prepare.outputs.platform }}" | tr '[:lower:]' '[:upper:]')
@@ -218,7 +222,7 @@ jobs:
             
 
             if [ "$BUILD_TYPE" = "RELEASE" ]; then
-              BASE_NAME="SPT-SERVER-${UPPER_PLATFORM}-${SPT_VERSION}-${CLIENT_VERSION}-${SERVER_COMMIT}"
+              BASE_NAME="${SPT_NAME}-${UPPER_PLATFORM}-${SPT_VERSION}-${CLIENT_VERSION}-${SERVER_COMMIT}"
             else
               TAG_PART=""
               if [[ "$UPPER_TARGET_TAG" == *-*-* ]]; then
@@ -228,9 +232,9 @@ jobs:
                 fi
               fi
               if [ -n "$TAG_PART" ]; then
-                BASE_NAME="SPT-SERVER-${UPPER_PLATFORM}-${UPPER_BUILD_TYPE}-${SPT_VERSION}-${CLIENT_VERSION}-${SERVER_COMMIT}${TAG_PART}"
+                BASE_NAME="${SPT_NAME}-${UPPER_PLATFORM}-${UPPER_BUILD_TYPE}-${SPT_VERSION}-${CLIENT_VERSION}-${SERVER_COMMIT}${TAG_PART}"
               else
-                BASE_NAME="SPT-SERVER-${UPPER_PLATFORM}-${UPPER_BUILD_TYPE}-${SPT_VERSION}-${CLIENT_VERSION}-${SERVER_COMMIT}-${DATE}"
+                BASE_NAME="${SPT_NAME}-${UPPER_PLATFORM}-${UPPER_BUILD_TYPE}-${SPT_VERSION}-${CLIENT_VERSION}-${SERVER_COMMIT}-${DATE}"
               fi
             fi
           fi
