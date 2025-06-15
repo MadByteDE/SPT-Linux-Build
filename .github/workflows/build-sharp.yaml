@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       crossPlatformRelease:
-        description: 'Create a cross-platform release (Windows + Linux)'
+        description: 'Cross-platform release (Windows + Linux server)'
         required: false
         type: 'boolean'
         default: 'true'
