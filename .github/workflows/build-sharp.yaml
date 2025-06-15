@@ -157,7 +157,7 @@ jobs:
         shell: bash
         run: |
           dotnet publish ./SPTarkov.Server/SPTarkov.Server.csproj -c Release -f net9.0 -r ${{ needs.prepare.outputs.platform }} -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishSingleFile=true --self-contained false -p:SptBuildType=${{ needs.prepare.outputs.build_type }} -p:SptVersion=${{ needs.prepare.outputs.spt_version }} -p:SptBuildTime=$( date +%Y%m%d ) -p:SptCommit=${{ steps.commit-hash.outputs.server_commit }} -p:IsPublish=true
-          cd ./bin/Release/net9.0/${{ needs.prepare.outputs.platform }}/publish/
+          cd ./SPTarkov.Server/bin/Release/net9.0/${{ needs.prepare.outputs.platform }}/publish/
           chmod +x SPTarkov.Server
         working-directory: SPT/Build/server-csharp
 
