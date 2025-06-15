@@ -24,6 +24,7 @@ jobs:
       build_type: ${{ steps.determine-build-type.outputs.build_type }}
       client_version: ${{ steps.versions.outputs.client_version }}
       spt_version: ${{ steps.versions.outputs.spt_version }}
+      platform: 'linux-x64'
 
     steps:
       - name: Determine Build Context
@@ -154,7 +155,7 @@ jobs:
 
       - name: Publish Server
         shell: bash
-        run: dotnet publish ./SPTarkov.Server/SPTarkov.Server.csproj -c Release -f net9.0 -r linux-x64 -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishSingleFile=true --self-contained false -p:SptBuildType=${{ needs.prepare.outputs.build_type }} -p:SptVersion=${{ needs.prepare.outputs.spt_version }} -p:SptBuildTime=$( date +%Y%m%d ) -p:SptCommit=${{ steps.commit-hash.outputs.server_commit }} -p:IsPublish=true
+        run: dotnet publish ./SPTarkov.Server/SPTarkov.Server.csproj -c Release -f net9.0 -r ${{ needs.prepare.outputs.platform }} -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishSingleFile=true --self-contained false -p:SptBuildType=${{ needs.prepare.outputs.build_type }} -p:SptVersion=${{ needs.prepare.outputs.spt_version }} -p:SptBuildTime=$( date +%Y%m%d ) -p:SptCommit=${{ steps.commit-hash.outputs.server_commit }} -p:IsPublish=true
         working-directory: SPT/Build/server-csharp
 
       - name: Upload Server Artifact
@@ -162,8 +163,8 @@ jobs:
         with:
           name: server-artifact
           path: |
-            SPT/Build/server-csharp/SPTarkov.Server/bin/Release/net9.0/linux-x64/publish/
-            !SPT/Build/server-csharp/SPTarkov.Server/bin/Release/net9.0/linux-x64/publish/**/*.pdb
+            SPT/Build/server-csharp/SPTarkov.Server/bin/Release/net9.0/${{ needs.prepare.outputs.platform }}/publish/
+            !SPT/Build/server-csharp/SPTarkov.Server/bin/Release/net9.0/${{ needs.prepare.outputs.platform }}/publish/**/*.pdb
           compression-level: 0
           retention-days: 1
           overwrite: true
@@ -204,18 +205,19 @@ jobs:
           BUILD_TYPE=${{ needs.prepare.outputs.build_type }}
           SPT_VERSION=${{ needs.prepare.outputs.spt_version }}
           CLIENT_VERSION=${{ needs.prepare.outputs.client_version }}
+          PLATFORM=${{ needs.prepare.outputs.platform }}
           SERVER_COMMIT=${{ needs.build-server.outputs.server_commit }}
           TARGET_TAG=${{ needs.prepare.outputs.target_tag }}
           DATE=$(date +%Y%m%d)
 
           if [[ "${{ needs.prepare.outputs.is_nightly }}" == "true" ]]; then
-            BASE_NAME="SPT-SERVER-NIGHTLY-${SPT_VERSION}-${CLIENT_VERSION}-${SERVER_COMMIT}-${DATE}"
+            BASE_NAME="SPT-SERVER-NIGHTLY-${PLATFORM}-${SPT_VERSION}-${CLIENT_VERSION}-${SERVER_COMMIT}-${DATE}"
           else
             UPPER_BUILD_TYPE=$(echo "$BUILD_TYPE" | tr '[:lower:]' '[:upper:]')
             UPPER_TARGET_TAG=$(echo "$TARGET_TAG" | tr '[:lower:]' '[:upper:]')
 
             if [ "$BUILD_TYPE" = "RELEASE" ]; then
-              BASE_NAME="SPT-SERVER-${SPT_VERSION}-${CLIENT_VERSION}-${SERVER_COMMIT}"
+              BASE_NAME="SPT-SERVER-${PLATFORM}-${SPT_VERSION}-${CLIENT_VERSION}-${SERVER_COMMIT}"
             else
               TAG_PART=""
               if [[ "$UPPER_TARGET_TAG" == *-*-* ]]; then
@@ -225,9 +227,9 @@ jobs:
                 fi
               fi
               if [ -n "$TAG_PART" ]; then
-                BASE_NAME="SPT-SERVER-${UPPER_BUILD_TYPE}-${SPT_VERSION}-${CLIENT_VERSION}-${SERVER_COMMIT}${TAG_PART}"
+                BASE_NAME="SPT-SERVER-${PLATFORM}-${UPPER_BUILD_TYPE}-${SPT_VERSION}-${CLIENT_VERSION}-${SERVER_COMMIT}${TAG_PART}"
               else
-                BASE_NAME="SPT-SERVER-${UPPER_BUILD_TYPE}-${SPT_VERSION}-${CLIENT_VERSION}-${SERVER_COMMIT}-${DATE}"
+                BASE_NAME="SPT-SERVER-${PLATFORM}-${UPPER_BUILD_TYPE}-${SPT_VERSION}-${CLIENT_VERSION}-${SERVER_COMMIT}-${DATE}"
               fi
             fi
           fi
