@@ -24,7 +24,7 @@ jobs:
       build_type: ${{ steps.determine-build-type.outputs.build_type }}
       client_version: ${{ steps.versions.outputs.client_version }}
       spt_version: ${{ steps.versions.outputs.spt_version }}
-      platform: 'linux-x64'
+      platform: 'LINUX-X64'
 
     steps:
       - name: Determine Build Context
