@@ -1,4 +1,4 @@
-name: SPT Release Build - C#
+name: SPT Server Linux Release Build - C#
 
 on:
   workflow_dispatch:
@@ -20,8 +20,6 @@ jobs:
     outputs:
       proceed: ${{ steps.check-existence.outputs.proceed }}
       branch_server: ${{ steps.determine-context.outputs.branch_server }}
-      branch_modules: ${{ steps.determine-context.outputs.branch_modules }}
-      branch_launcher: ${{ steps.determine-context.outputs.branch_launcher }}
       target_tag: ${{ steps.determine-context.outputs.target_tag }}
       build_type: ${{ steps.determine-build-type.outputs.build_type }}
       client_version: ${{ steps.versions.outputs.client_version }}
@@ -77,7 +75,7 @@ jobs:
         run: |
           PROCEED="true"
           TAG="${{ steps.determine-context.outputs.target_tag }}"
-          REPOS=("https://${{ secrets.SERVER_CSHARP_TOKEN }}@github.com/sp-tarkov/server-csharp.git" "https://github.com/sp-tarkov/modules.git" "https://github.com/sp-tarkov/launcher.git")
+          REPOS=("https://github.com/sp-tarkov/server-csharp.git")
           for REPO in "${REPOS[@]}"; do
             echo "Checking for tag $TAG in $REPO..."
             if ! git ls-remote --tags $REPO $TAG | grep -q $TAG; then
@@ -101,7 +99,7 @@ jobs:
           rm -rf /workspace/SPT/Build/server-csharp-core
           git init /workspace/SPT/Build/server-csharp-core
           cd /workspace/SPT/Build/server-csharp-core
-          git remote add origin https://${{ secrets.SERVER_CSHARP_TOKEN }}@github.com/sp-tarkov/server-csharp.git
+          git remote add origin https://github.com/sp-tarkov/server-csharp.git
           git config core.sparseCheckout true
           echo "Libraries/SPTarkov.Server.Assets/Assets/configs/core.json" >> .git/info/sparse-checkout
 
@@ -141,7 +139,7 @@ jobs:
           TARGET="${{ needs.prepare.outputs.target_tag }}"
   
           echo "Cloning target: $TARGET"
-          git clone https://${{ secrets.SERVER_CSHARP_TOKEN }}@github.com/sp-tarkov/server-csharp.git --branch "$TARGET" --depth 1 "$serverPath"
+          git clone https://github.com/sp-tarkov/server-csharp.git --branch "$TARGET" --depth 1 "$serverPath"
   
           # Pull LFS files.
           cd "$serverPath"
@@ -156,7 +154,7 @@ jobs:
 
       - name: Publish Server
         shell: bash
-        run: dotnet publish ./SPTarkov.Server/SPTarkov.Server.csproj -c Release -f net9.0 -r win-x64 -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishSingleFile=true --self-contained false -p:SptBuildType=${{ needs.prepare.outputs.build_type }} -p:SptVersion=${{ needs.prepare.outputs.spt_version }} -p:SptBuildTime=$( date +%Y%m%d ) -p:SptCommit=${{ steps.commit-hash.outputs.server_commit }} -p:IsPublish=true
+        run: dotnet publish ./SPTarkov.Server/SPTarkov.Server.csproj -c Release -f net9.0 -r linux-x64 -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishSingleFile=true --self-contained false -p:SptBuildType=${{ needs.prepare.outputs.build_type }} -p:SptVersion=${{ needs.prepare.outputs.spt_version }} -p:SptBuildTime=$( date +%Y%m%d ) -p:SptCommit=${{ steps.commit-hash.outputs.server_commit }} -p:IsPublish=true
         working-directory: SPT/Build/server-csharp
 
       - name: Upload Server Artifact
@@ -164,121 +162,15 @@ jobs:
         with:
           name: server-artifact
           path: |
-            SPT/Build/server-csharp/SPTarkov.Server/bin/Release/net9.0/win-x64/publish/
-            !SPT/Build/server-csharp/SPTarkov.Server/bin/Release/net9.0/win-x64/publish/**/*.pdb
-          compression-level: 0
-          retention-days: 1
-          overwrite: true
-          if-no-files-found: error
-
-  build-modules:
-    needs: prepare
-    if: needs.prepare.outputs.proceed == 'true'
-    runs-on: ubuntu-latest
-    container:
-      image: refringe/spt-build-dotnet:2.0.2
-    steps:
-      - name: Clone Modules
-        id: clone-modules
-        shell: bash
-        run: |
-          rm -rf /workspace/SPT/Build/modules
-
-          TAG=${{ needs.prepare.outputs.target_tag }}
-          echo "Cloning modules from tag $TAG"
-          git clone https://github.com/sp-tarkov/modules.git --branch "$TAG" --depth 1 /workspace/SPT/Build/modules
-
-          cd /workspace/SPT/Build/modules
-          echo "modules_commit=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-
-      - name: Download Client Module Package
-        shell: bash
-        run: |
-          DIR_MANAGED="/workspace/SPT/Build/modules/project/Shared/Managed"
-          DOWNLOAD_PATH="$DIR_MANAGED/${{ needs.prepare.outputs.client_version }}.7z"
-          DOWNLOAD_URL="${{ secrets.MODULE_DOMAIN }}/${{ needs.prepare.outputs.client_version }}.7z"
-          echo "Downloading Client Module Package from $DOWNLOAD_URL to $DOWNLOAD_PATH"
-          mkdir -p "$DIR_MANAGED"
-          wget -q -O "$DOWNLOAD_PATH" "$DOWNLOAD_URL" || {
-            echo "Failed to download the module package."
-            exit 1
-          }
-          if [ ! -s "$DOWNLOAD_PATH" ]; then
-            echo "The module package does not exist or is empty."
-            exit 1
-          fi
-          echo "Download Successful: $DOWNLOAD_PATH"
-
-      - name: Decompress Client Module Package
-        shell: bash
-        run: |
-          cd /workspace/SPT/Build/modules/project/Shared/Managed
-          7z x ${{ needs.prepare.outputs.client_version }}.7z -aoa
-          echo "Client module package decompressed."
-
-      - name: Delete Client Module Package
-        shell: bash
-        run: |
-          cd /workspace/SPT/Build/modules/project/Shared/Managed
-          rm -f ${{ needs.prepare.outputs.client_version }}.7z
-          echo "Client module package deleted."
-
-      - name: Build Modules
-        shell: bash
-        run: |
-          cd /workspace/SPT/Build/modules/project
-          dotnet build -c Release -p:Version=${{ needs.prepare.outputs.spt_version }}
-          printf "\nBuilt!\n\n"
-
-      - name: Upload Modules Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: modules-artifact
-          path: /workspace/SPT/Build/modules/project/Build
-          compression-level: 0
-          retention-days: 1
-          overwrite: true
-          if-no-files-found: error
-
-  build-launcher:
-    needs: prepare
-    if: needs.prepare.outputs.proceed == 'true'
-    runs-on: ubuntu-latest
-    container:
-      image: refringe/spt-build-dotnet:2.0.2
-    steps:
-      - name: Clone Launcher
-        id: clone-launcher
-        shell: bash
-        run: |
-          rm -rf /workspace/SPT/Build/launcher
-
-          TAG=${{ needs.prepare.outputs.target_tag }}
-          echo "Cloning launcher from tag $TAG"
-          git clone https://github.com/sp-tarkov/launcher.git --branch "$TAG" --depth 1 /workspace/SPT/Build/launcher
-
-          cd /workspace/SPT/Build/launcher
-          echo "launcher_commit=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-
-      - name: Build Launcher
-        shell: bash
-        run: |
-          cd /workspace/SPT/Build/launcher/project
-          dotnet build
-          printf "\nBuilt!\n\n"
-
-      - name: Upload Launcher Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: launcher-artifact
-          path: /workspace/SPT/Build/launcher/project/Build
+            SPT/Build/server-csharp/SPTarkov.Server/bin/Release/net9.0/linux-x64/publish/
+            !SPT/Build/server-csharp/SPTarkov.Server/bin/Release/net9.0/linux-x64/publish/**/*.pdb
           compression-level: 0
           retention-days: 1
           overwrite: true
           if-no-files-found: error
 
   assemble-and-publish:
-    needs: [prepare, build-server, build-modules, build-launcher]
+    needs: [prepare, build-server]
     runs-on: ubuntu-latest
     container:
       image: refringe/spt-build-dotnet:2.0.2
@@ -295,22 +187,10 @@ jobs:
           name: server-artifact
           path: release/
 
-      - name: Download Modules Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: modules-artifact
-          path: release/
-
-      - name: Download Launcher Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: launcher-artifact
-          path: release/
-
       - name: Clone Build Project
         uses: actions/checkout@v4
         with:
-          repository: sp-tarkov/build
+          repository: MadByteDE/SPT-Linux-Build
           path: build
 
       - name: Merge Static Assets and Dynamic Files
@@ -333,13 +213,13 @@ jobs:
           DATE=$(date +%Y%m%d)
 
           if [[ "${{ needs.prepare.outputs.is_nightly }}" == "true" ]]; then
-            BASE_NAME="SPT-NIGHTLY-${SPT_VERSION}-${CLIENT_VERSION}-${SERVER_COMMIT}-${DATE}"
+            BASE_NAME="SPT-SERVER-NIGHTLY-${SPT_VERSION}-${CLIENT_VERSION}-${SERVER_COMMIT}-${DATE}"
           else
             UPPER_BUILD_TYPE=$(echo "$BUILD_TYPE" | tr '[:lower:]' '[:upper:]')
             UPPER_TARGET_TAG=$(echo "$TARGET_TAG" | tr '[:lower:]' '[:upper:]')
 
             if [ "$BUILD_TYPE" = "RELEASE" ]; then
-              BASE_NAME="SPT-${SPT_VERSION}-${CLIENT_VERSION}-${SERVER_COMMIT}"
+              BASE_NAME="SPT-SERVER-${SPT_VERSION}-${CLIENT_VERSION}-${SERVER_COMMIT}"
             else
               TAG_PART=""
               if [[ "$UPPER_TARGET_TAG" == *-*-* ]]; then
@@ -349,9 +229,9 @@ jobs:
                 fi
               fi
               if [ -n "$TAG_PART" ]; then
-                BASE_NAME="SPT-${UPPER_BUILD_TYPE}-${SPT_VERSION}-${CLIENT_VERSION}-${SERVER_COMMIT}${TAG_PART}"
+                BASE_NAME="SPT-SERVER-${UPPER_BUILD_TYPE}-${SPT_VERSION}-${CLIENT_VERSION}-${SERVER_COMMIT}${TAG_PART}"
               else
-                BASE_NAME="SPT-${UPPER_BUILD_TYPE}-${SPT_VERSION}-${CLIENT_VERSION}-${SERVER_COMMIT}-${DATE}"
+                BASE_NAME="SPT-SERVER-${UPPER_BUILD_TYPE}-${SPT_VERSION}-${CLIENT_VERSION}-${SERVER_COMMIT}-${DATE}"
               fi
             fi
           fi
@@ -374,150 +254,3 @@ jobs:
 
           echo "file_size_mb=$FILE_SIZE_MB" >> $GITHUB_OUTPUT
           echo "file_hash=$FILE_HASH" >> $GITHUB_OUTPUT
-
-      - name: R2 Upload
-        if: needs.prepare.outputs.build_type == 'Release-LUL'
-        env:
-          SPT_VERSION: ${{ needs.prepare.outputs.spt_version }}
-          CLIENT_VERSION: ${{ needs.prepare.outputs.client_version }}
-          FILE_HASH: ${{ steps.compress-release.outputs.file_hash }}
-          R2_ACCESS_KEY: ${{ secrets.R2_ACCESS_KEY }}
-          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
-          R2_FRONT: ${{ secrets.R2_FRONT }}
-        shell: bash
-        run: |
-          # Configure Rclone
-          echo '[r2]
-          type = s3
-          provider = Cloudflare
-          access_key_id = '"$R2_ACCESS_KEY"'
-          secret_access_key = '"$R2_SECRET_ACCESS_KEY"'
-          region = auto
-          endpoint = '"$R2_ENDPOINT"'
-          acl = public-read' > ./rclone.conf
-
-          # Generate Release JSON File
-          echo "{
-            \"AkiVersion\": \"${SPT_VERSION}\",
-            \"ClientVersion\": \"${CLIENT_VERSION}\",
-            \"Mirrors\": [{
-              \"DownloadUrl\": \"${R2_FRONT}/${{ steps.generate-filename.outputs.build_name }}\",
-              \"Hash\": \"${FILE_HASH}\"
-            }]
-          }" > ./release.json
-
-          # Everything below this line has been commented out for saftey. This is a safety measure to prevent accidental
-          # uploads to the R2 bucket WHICH WILL OVERWRITE THE EXISTING RELEASE AND PUSH IT TO THE LIVE LAUNCHER.
-          # The if statement for this step will need to be adjusted as well.
-
-          #echo "Current Local Directory:"
-          #ls -lah
-
-          #echo "Current Remote Directory:"
-          #rclone ls r2:${R2_BUCKET_NAME} --config ./rclone.conf
-
-          # Remove old .7z files from the bucket
-          #rclone lsf r2:${R2_BUCKET_NAME} --config ./rclone.conf --files-only --include="*.7z" --absolute > files-to-remove.txt
-          #echo "Files to be deleted:"
-          #cat files-to-remove.txt
-          #rclone delete r2:${R2_BUCKET_NAME} --config ./rclone.conf --files-from=files-to-remove.txt --max-depth=1 -vv
-
-          # Upload the .7z file using rclone with the above config
-          #rclone copy "./${{ steps.generate-filename.outputs.build_name }}" r2:${R2_BUCKET_NAME} --config ./rclone.conf -vv
-
-          # Upload the JSON file using rclone with the above config
-          #rclone copy "./release.json" r2:${R2_BUCKET_NAME} --config ./rclone.conf -vv
-
-          #echo "R2 Upload completed."
-
-      - name: Upload Release to HTTPS Source
-        id: upload-https-7z
-        shell: bash
-        run: |
-          sshpass -p "${{ secrets.SFTP_PASSWORD }}" scp -v -o "Port=${{ secrets.SFTP_PORT }}" -o "ConnectTimeout=20" -o "StrictHostKeyChecking=no" "${{ steps.generate-filename.outputs.build_name }}" ${{ secrets.SFTP_USERNAME }}@${{ secrets.SFTP_HOST }}:/public/builds
-          echo "link_https=${{ secrets.SFTP_MIRROR_LINK }}/builds/${{ steps.generate-filename.outputs.build_name }}" >> $GITHUB_OUTPUT
-          echo "HTTPS Upload completed: ${{ secrets.SFTP_MIRROR_LINK }}/builds/${{ steps.generate-filename.outputs.build_name }}"
-
-      - name: Post Build Info to Discord
-        env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_SHARP_URL }}
-          BUILD_TYPE: ${{ needs.prepare.outputs.build_type }}
-          BASE_NAME: ${{ steps.generate-filename.outputs.base_name }}
-          BUILD_NAME: ${{ steps.generate-filename.outputs.build_name }}
-          FILE_SIZE_MB: ${{ steps.compress-release.outputs.file_size_mb }}
-          FILE_HASH: ${{ steps.compress-release.outputs.file_hash }}
-          LINK_HTTPS: ${{ steps.upload-https-7z.outputs.link_https }}
-          IS_NIGHTLY: ${{ needs.prepare.outputs.is_nightly }}
-        shell: bash
-        run: |
-          UPPER_BUILD_TYPE=$(echo "$BUILD_TYPE" | tr '[:lower:]' '[:upper:]')
-          FOOTER_MESSAGES=("You look great today!" "Powered by coffee" "Life's too short to remove USB safely" "Have you tried turning it off and on again?" "In Chomp we trust" "Beep boop, I'm a bot - Waffle" "Keep calm and commit your code" "This isn't a bug, it's an undocumented feature" "Please direct all support requests to Drakia" "Meaw" "If this doesnt work it's because of Alex" "Chomp approves of this message" "Chomp is life, Chomp is love" "Drakia denies all involvement" "Drakia left this note here just to confuse you" "CWX is the reason we can’t have nice things" "CWX voted against this message" "Powered by caffeine, chaos, and Chomp" "RaiRai says hi-hi" "RaiRai wants to remind you that sarcasm is a skill" "Refringe just wobbled" "Refringe is watching" "Refringe rewrote this embed thirty times" "Refringe, professional button-pusher extraordinaire" "Sarix would like you to reconsider your choices" "Sarix just gave this embed a 7/10" "Waffle has entered the chat, and now it’s weird" "Waffle is busy stacking layers of chaos" "Waffle would like to speak to the manager of logic")
-          FOOTER_MESSAGE="${FOOTER_MESSAGES[$RANDOM % ${#FOOTER_MESSAGES[@]}]}"
-          TIMESTAMP=$(date --iso-8601=seconds)
-          MODS=""
-
-          if [[ "${{ needs.prepare.outputs.is_nightly }}" == "true" ]]; then
-            EMBED_COLOR=16705372
-            EMBED_DESCRIPTION='A new nightly build is available. These are untested and considered unstable. Absolutely no support is provided. **If you ask for help you will be banned from the #dev-builds channel without explanation.** 7-Zip is *required* to extract the release. The download link is temporary.'
-            MODS='disabled'
-          else
-            if [ "$BUILD_TYPE" == "BLEEDING_EDGE" ]; then
-              EMBED_COLOR=15548997
-              EMBED_DESCRIPTION='A new bleeding edge build is available. These are strictly for testing issues *and not for general gameplay*. 7-Zip is *required* to extract the release. The download link is temporary.'
-              MODS='disabled'
-            elif [ "$BUILD_TYPE" == "BLEEDING_EDGE_MODS" ]; then
-              EMBED_COLOR=15548997
-              EMBED_DESCRIPTION='A new bleeding edge build is available. These are strictly for testing issues *and not for general gameplay*. 7-Zip is *required* to extract the release. The download link is temporary.'
-              MODS='enabled'
-            elif [ "$BUILD_TYPE" == "DEBUG" ]; then
-              EMBED_COLOR=2123412
-              EMBED_DESCRIPTION=$'A new debug build is available. These have extra-verbose logging enabled *for testing*. 7-Zip is *required* to extract the release. The download link is temporary.'
-              MODS='enabled'
-            else
-              EMBED_COLOR=5763719
-              EMBED_DESCRIPTION=$'A new *release* build has been published. Get to testing, nerds.'
-              MODS='enabled'
-            fi
-          fi
-
-          fields_json='[
-            {"name": "Name", "value": "'"$BASE_NAME"'"},
-            {"name": "Build Type", "value": "'"$BUILD_TYPE"'", "inline": true},
-            {"name": "Mods", "value": "'"$MODS"'", "inline": true},
-            {"name": "File Size", "value": "'"$FILE_SIZE_MB"'", "inline": true},
-            {"name": "File Hash", "value": "'"$FILE_HASH"'"},
-            {"name": "Download", "value": "'"$LINK_HTTPS"'"}
-          ]'
-
-          payload=$(jq -n \
-            --argjson fields "$fields_json" \
-            --arg EMBED_DESCRIPTION "$EMBED_DESCRIPTION" \
-            --argjson EMBED_COLOR "$EMBED_COLOR" \
-            --arg FOOTER_MESSAGE "$FOOTER_MESSAGE" \
-            --arg TIMESTAMP "$TIMESTAMP" \
-            '{
-              "content": $EMBED_DESCRIPTION,
-              "embeds": [
-                {
-                  "title": "Build Information",
-                  "color": $EMBED_COLOR,
-                  "fields": $fields,
-                  "footer": {"text": $FOOTER_MESSAGE, "icon_url": "https://i.imgur.com/28JJJec.png"},
-                  "timestamp": $TIMESTAMP
-                }
-              ],
-              "username": "BuildBot",
-              "avatar_url": "https://i.imgur.com/28JJJec.png"
-            }')
-          echo "$payload" > payload_discord.json
-
-          echo "Payload Generated:"
-          cat payload_discord.json
-
-          echo "Sending Payload..."
-          curl -H "Content-Type: application/json" \
-            -X POST \
-            --data-binary @payload_discord.json \
-            $DISCORD_WEBHOOK_URL
