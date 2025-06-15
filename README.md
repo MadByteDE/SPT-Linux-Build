@@ -6,7 +6,7 @@ Builds from this repository will be used by our automated installer scripts foun
 
 # SPT Build Project - CI/CD Overview
 
-This guide outlines the Continuous Integration (CI) and Continuous Deployment (CD) setup for the SPT project. It automates and streamlines processes across three key repositories: [sp-tarkov/server](https://github.com/sp-tarkov/server), [sp-tarkov/modules](https://github.com/sp-tarkov/modules), and [sp-tarkov/launcher](https://github.com/sp-tarkov/launcher), utilizing GitHub Actions for efficient operations.
+This guide outlines the Continuous Integration (CI) and Continuous Deployment (CD) setup for the SPT project. It automates and streamlines processes for the repository: [sp-tarkov/server](https://github.com/sp-tarkov/server), utilizing GitHub Actions for efficient operations.
 
 The following sections detail our CI/CD pipeline, highlighting how each update moves from development through to deployment, ensuring consistency and reliability in the build process.
 
@@ -48,10 +48,6 @@ The CI/CD pipeline of the SPT project uses specific tagging conventions to trigg
 ## Project Repositories Configuration
 
 Each of the three main repositories (Modules, Server, and Launcher) are equipped with a `.gitea/workflows/build-trigger.yaml` file. This workflow file is essential for triggering a build within *this* Build repository upon the push of a tag to any of the project repositories. The `build-trigger.yaml` workflow pushes a repository-dispatch event.
-
-## Module Build Requirements
-
-The build process for the Modules project necessitates access to a secured private repository. A link to this repository is saved as a Gitea environment secret, named `MODULE_DOMAIN`. The build process will fail if this secret is not defined and the modules can not be downloaded.
 
 ## Building the Docker Images
 
