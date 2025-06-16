@@ -220,7 +220,11 @@ jobs:
         with:
           path: release/
           merge-multiple: true
-
+          
+      - name: Update File Permissions
+        shell: bash
+        run: |
+          chmod +x ./release/SPTarkov.Server.Linux
 
       - name: Clone Build Project
         uses: actions/checkout@v4
