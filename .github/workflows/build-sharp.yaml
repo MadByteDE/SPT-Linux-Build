@@ -162,7 +162,7 @@ jobs:
         run: |
           PLATFORMS=("win-x64" "linux-x64")
           for PLATFORM in "${PLATFORMS[@]}"; do
-            echo "Publishing server for '$PLATFORM'..."
+            echo "\nPublishing server for '$PLATFORM'...\n"
             dotnet publish ./SPTarkov.Server/SPTarkov.Server.csproj \
             -c Release \
             -f net9.0 \
